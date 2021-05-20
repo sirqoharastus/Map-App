@@ -16,9 +16,12 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.firebase.database.*
+import com.google.firebase.database.ktx.database
+import com.google.firebase.ktx.Firebase
 
 class FindMeMapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
@@ -83,7 +86,7 @@ class FindMeMapsActivity : AppCompatActivity(), OnMapReadyCallback {
                             location.latitude,
                             location.longitude
                         )
-                    firebaseRef.child("UserLocation").setValue(locationLogging)
+                    firebaseRef.child("UserLocationNode").setValue(locationLogging)
                         .addOnSuccessListener {
                             Toast.makeText(this@FindMeMapsActivity, "Location Added To Database", Toast.LENGTH_LONG).show()
                         }
@@ -92,10 +95,10 @@ class FindMeMapsActivity : AppCompatActivity(), OnMapReadyCallback {
                         }
                     if (location != null){
                         val latLng = LatLng(location.latitude,location.longitude)
-                        val markerOptions = MarkerOptions().position(latLng)
-                        mMap.clear()
+                        val markerOptions = MarkerOptions().position(latLng).title("Salawu")
                         mMap.addMarker(markerOptions)
-                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng,15f))
+                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng,20f))
+                        mMap.clear()
                     }
                 }
             }
@@ -115,13 +118,13 @@ class FindMeMapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
         override fun onDataChange(snapshot: DataSnapshot) {
             if (snapshot.exists()){
-                var locationDetails = snapshot.child("UserLocation").getValue(LocationDetails::class.java)
-                var teamMateLat = locationDetails?.latitude
-                var teamMateLong = locationDetails?.longitude
+                val locationDetails = snapshot.child("user").getValue(LocationDetails::class.java)
+                val teamMateLat = locationDetails?.latitude
+                val teamMateLong = locationDetails?.longitude
 
-                if (teamMateLat != null && teamMateLat!= null){
-                    val teamMateLocation = teamMateLong?.let { LatLng(teamMateLat, it) }
-                    val markerOptions = MarkerOptions().position(teamMateLocation).title("Bawo")
+                if (teamMateLat != null && teamMateLong != null){
+                    val teamMateLocation = LatLng(teamMateLat, teamMateLong)
+                    val markerOptions = MarkerOptions().position(teamMateLocation).title("Bawo").icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_MAGENTA))
                     mMap.addMarker(markerOptions)
                     mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(teamMateLocation, 20f))
                    Toast.makeText(this@FindMeMapsActivity, "Location accessed from the database", Toast.LENGTH_LONG).show()
@@ -161,6 +164,8 @@ class FindMeMapsActivity : AppCompatActivity(), OnMapReadyCallback {
         mapFragment.getMapAsync(this)
         checkPermission()
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+        firebaseRef = Firebase.database.reference
+        firebaseRef.addValueEventListener(logListener)
     }
     /**
      * Manipulates the map once available.
