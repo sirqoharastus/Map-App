@@ -13,7 +13,9 @@ import com.decagon.android.sq007.R
 import com.decagon.android.sq007.SecondImplementation.ClickListener
 import com.decagon.android.sq007.SecondImplementation.Models.PokemonDataGotten
 
-class PokemonAdapter(var context: Context, var pokemonList:List<PokemonDataGotten>, var listener: ClickListener): RecyclerView.Adapter<PokemonAdapter.PokemonViewHolder>() {
+class PokemonAdapter(var context: Context, var listener: ClickListener): RecyclerView.Adapter<PokemonAdapter.PokemonViewHolder>() {
+
+    var pokemonList:List<PokemonDataGotten> = listOf()
     /**
      * The views are initialized here
      */
@@ -25,6 +27,7 @@ class PokemonAdapter(var context: Context, var pokemonList:List<PokemonDataGotte
 
     fun setPokemonData(recyclerList:List<PokemonDataGotten>){
         pokemonList = recyclerList
+        notifyDataSetChanged()
     }
     /**
      * Returns the layout to be inflated
@@ -53,4 +56,6 @@ class PokemonAdapter(var context: Context, var pokemonList:List<PokemonDataGotte
             listener.onItemClicked(pos)
         }
     }
+
+
 }

@@ -25,28 +25,114 @@ import com.google.firebase.ktx.Firebase
 
 class FindMeMapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
-    private lateinit var mMap: GoogleMap
-    private lateinit var locationManager: LocationManager
-    private val LOCATION_REQUEST = 1
+    private lateinit var findMeMap: GoogleMap
+    private lateinit var findMeMapLocationManager: LocationManager
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationRequest: LocationRequest
     private lateinit var locationCallback: LocationCallback
-    private lateinit var firebaseRef:DatabaseReference
-    val REQUEST_CODE = 100
+    private lateinit var firebaseRef: DatabaseReference
+    private val requestCode = 100
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_find_me_maps)
+        findMeMapLocationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        val REQUEST_CODE = 100
+        // Obtain the SupportMapFragment and get notified when the map is ready to be used.
+        val mapFragment = supportFragmentManager
+            .findFragmentById(R.id.map) as SupportMapFragment
+        mapFragment.getMapAsync(this)
+        checkPermission()
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+        firebaseRef = Firebase.database.reference
+        firebaseRef.addValueEventListener(logListener)
+    }
     /*
-    This function checks if the location permission has been granted
-    if it has been the function calls the getLocationUpdates funtion
-    and also the startLocationUpdates function. if not it asks for permission
+   this function uses the location callback from the fusedLocationProvider to provide
+   location updates and sends those location updates to firebase database
+    */
+
+    private fun getLocationUpdates() {
+        locationRequest = LocationRequest.create()
+        locationRequest.interval = 30000
+        locationRequest.fastestInterval = 20000
+        locationRequest.priority = LocationRequest.PRIORITY_HIGH_ACCURACY
+
+        locationCallback = object : LocationCallback() {
+            override fun onLocationResult(p0: LocationResult) {
+                super.onLocationResult(p0)
+                if (p0.locations.isNotEmpty()) {
+                    val location = p0.lastLocation
+                    val firebaseDatabase = FirebaseDatabase.getInstance()
+                    val firebaseRef = firebaseDatabase.reference
+                    val locationLogging =
+                        LocationDetails(
+                            location.latitude,
+                            location.longitude
+                        )
+                    firebaseRef.child("UserLocationNode").setValue(locationLogging)
+                        .addOnSuccessListener {
+                            Toast.makeText(
+                                this@FindMeMapsActivity,
+                                "Location Added To Database",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                        .addOnFailureListener {
+                            Toast.makeText(
+                                this@FindMeMapsActivity,
+                                "Failed To Add Location Details To Database",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    if (location != null) {
+                        val latLng = LatLng(location.latitude, location.longitude)
+                        val markerOptions = MarkerOptions().position(latLng).title("Salawu")
+                        findMeMap.addMarker(markerOptions.title("Salawu"))
+                        findMeMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 20f))
+                        findMeMap.clear()
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     *This function handles reading of data from the child node that was sent to firebase database
+     * if snapshot exists the data from the node is saved in a variable and and the corresponding
+     * Latitudes and Longitudes are used to get the location and set the marker
      */
-    fun getLocationPermission(){
-        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED){
-            mMap.isMyLocationEnabled = true
-            getLocationUpdates()
-            startLocationUpdates()
+
+
+    val logListener = object : ValueEventListener {
+        override fun onCancelled(error: DatabaseError) {
+            Toast.makeText(
+                this@FindMeMapsActivity,
+                "Unable to read from database",
+                Toast.LENGTH_LONG
+            ).show()
         }
-        else {
-            ActivityCompat.requestPermissions(this, arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION),REQUEST_CODE)
+
+        override fun onDataChange(snapshot: DataSnapshot) {
+            if (snapshot.exists()) {
+                val locationDetails = snapshot.child("user").getValue(LocationDetails::class.java)
+                val teamMateLat = locationDetails?.latitude
+                val teamMateLong = locationDetails?.longitude
+
+                if (teamMateLat != null && teamMateLong != null) {
+                    val teamMateLocation = LatLng(teamMateLat, teamMateLong)
+                    val markerOptions = MarkerOptions().position(teamMateLocation).title("Bawo")
+                        .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_MAGENTA))
+                    findMeMap.addMarker(markerOptions)
+                    findMeMap.animateCamera(CameraUpdateFactory.newLatLngZoom(teamMateLocation, 20f))
+                    Toast.makeText(
+                        this@FindMeMapsActivity,
+                        "Location accessed from the database",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
         }
+
     }
 
     private fun startLocationUpdates() {
@@ -58,115 +144,16 @@ class FindMeMapsActivity : AppCompatActivity(), OnMapReadyCallback {
                 android.Manifest.permission.ACCESS_COARSE_LOCATION
             ) != PackageManager.PERMISSION_GRANTED
         ) {
-            ActivityCompat.requestPermissions(this, arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION),REQUEST_CODE)
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION),
+                requestCode
+            )
             return
         }
-        fusedLocationClient.requestLocationUpdates(locationRequest,locationCallback,null)
+        fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, null)
     }
-    /*
-    this function uses the location callback from the fusedLocationProvider to provide
-    location updates and sends those location updates to firebase database
-     */
 
-    private fun getLocationUpdates() {
-        locationRequest = LocationRequest.create()
-        locationRequest.interval = 30000
-        locationRequest.fastestInterval = 20000
-        locationRequest.priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-
-        locationCallback = object: LocationCallback(){
-            override fun onLocationResult(p0: LocationResult) {
-                super.onLocationResult(p0)
-                if (p0.locations.isNotEmpty()){
-                    val location = p0.lastLocation
-                    val firebaseDatabase = FirebaseDatabase.getInstance()
-                    val firebaseRef = firebaseDatabase.reference
-                    val locationLogging =
-                        LocationDetails(
-                            location.latitude,
-                            location.longitude
-                        )
-                    firebaseRef.child("UserLocationNode").setValue(locationLogging)
-                        .addOnSuccessListener {
-                            Toast.makeText(this@FindMeMapsActivity, "Location Added To Database", Toast.LENGTH_LONG).show()
-                        }
-                        .addOnFailureListener{
-                            Toast.makeText(this@FindMeMapsActivity, "Failed To Add Location Details To Database", Toast.LENGTH_LONG).show()
-                        }
-                    if (location != null){
-                        val latLng = LatLng(location.latitude,location.longitude)
-                        val markerOptions = MarkerOptions().position(latLng).title("Salawu")
-                        mMap.addMarker(markerOptions)
-                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng,20f))
-                        mMap.clear()
-                    }
-                }
-            }
-        }
-    }
-    /**
-     *This function handles reading of data from the child node that was sent to firebase database
-     * if snapshot exists the data from the node is saved in a variable and and the corresponding
-     * Latitudes and Longitudes are used to get the location and set the marker
-     */
-
-
-    val logListener = object: ValueEventListener{
-        override fun onCancelled(error: DatabaseError) {
-            Toast.makeText(this@FindMeMapsActivity, "Unable to read from database", Toast.LENGTH_LONG).show()
-        }
-
-        override fun onDataChange(snapshot: DataSnapshot) {
-            if (snapshot.exists()){
-                val locationDetails = snapshot.child("user").getValue(LocationDetails::class.java)
-                val teamMateLat = locationDetails?.latitude
-                val teamMateLong = locationDetails?.longitude
-
-                if (teamMateLat != null && teamMateLong != null){
-                    val teamMateLocation = LatLng(teamMateLat, teamMateLong)
-                    val markerOptions = MarkerOptions().position(teamMateLocation).title("Bawo").icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_MAGENTA))
-                    mMap.addMarker(markerOptions)
-                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(teamMateLocation, 20f))
-                   Toast.makeText(this@FindMeMapsActivity, "Location accessed from the database", Toast.LENGTH_LONG).show()
-                }
-            }
-        }
-
-    }
-    /**
-     *Determines the actions to be taken when permission is requested
-     */
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQUEST_CODE){
-            if (grantResults.contains(PackageManager.PERMISSION_GRANTED)){
-                getLocationPermission()
-            }
-            else {
-                Toast.makeText(this, "Permission not granted by user", Toast.LENGTH_LONG).show()
-                finish()
-            }
-        }
-    }
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_find_me_maps)
-        locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        val REQUEST_CODE = 100
-        // Obtain the SupportMapFragment and get notified when the map is ready to be used.
-        val mapFragment = supportFragmentManager
-            .findFragmentById(R.id.map) as SupportMapFragment
-        mapFragment.getMapAsync(this)
-        checkPermission()
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
-        firebaseRef = Firebase.database.reference
-        firebaseRef.addValueEventListener(logListener)
-    }
     /**
      * Manipulates the map once available.
      * This callback is triggered when the map is ready to be used.
@@ -177,16 +164,68 @@ class FindMeMapsActivity : AppCompatActivity(), OnMapReadyCallback {
      * installed Google Play services and returned to the app.
      */
     override fun onMapReady(googleMap: GoogleMap) {
-        mMap = googleMap
+        findMeMap = googleMap
         getLocationPermission()
     }
-    fun checkPermission(){
-        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED){
+
+    fun checkPermission() {
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                android.Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
             askForPermission()
         }
     }
 
+    /*
+    This function checks if the location permission has been granted
+    if it has been the function calls the getLocationUpdates funtion
+    and also the startLocationUpdates function. if not it asks for permission
+     */
+    fun getLocationPermission() {
+        if (ContextCompat.checkSelfPermission(
+                this,
+                android.Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            findMeMap.isMyLocationEnabled = true
+            getLocationUpdates()
+            startLocationUpdates()
+        } else {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION),
+                requestCode
+            )
+        }
+    }
+
     private fun askForPermission() {
-        ActivityCompat.requestPermissions(this as Activity, arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION) ,REQUEST_CODE)
+        ActivityCompat.requestPermissions(
+            this as Activity,
+            arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION),
+            requestCode
+        )
+    }
+
+    /**
+     *Determines the actions to be taken when permission is requested
+     */
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == this.requestCode) {
+            if (grantResults.contains(PackageManager.PERMISSION_GRANTED)) {
+                getLocationPermission()
+            } else {
+                Toast.makeText(this, "Permission not granted by user", Toast.LENGTH_LONG).show()
+                finish()
+            }
+        }
     }
 }

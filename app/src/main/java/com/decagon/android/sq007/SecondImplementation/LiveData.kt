@@ -12,7 +12,7 @@ class LiveData(private val connectivityManager:ConnectivityManager):LiveData<Boo
         super.onActive()
         val builder = NetworkRequest.Builder()
         connectivityManager.registerNetworkCallback(builder.build(), networkCallback)
-    }
+    } 
     override fun onInactive(){
         super.onInactive()
         connectivityManager.unregisterNetworkCallback(networkCallback)

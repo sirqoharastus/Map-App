@@ -33,11 +33,11 @@ class PokemonDisplayActivity : AppCompatActivity(),
          * Created an instance of CompositeDisposable
          * Declared an empty list database
          */
-        compositeDisposable = CompositeDisposable()
         database = listOf()
         liveData =
             LiveData(application)
 
+        pokemonAdapter = PokemonAdapter(this, this)
         /**
          * checks for the availability of network
          */
@@ -78,12 +78,7 @@ class PokemonDisplayActivity : AppCompatActivity(),
                     .subscribeOn(Schedulers.io())
                     .observeOn(AndroidSchedulers.mainThread())
                     .subscribe {
-                        pokemonAdapter =
-                            PokemonAdapter(
-                                this@PokemonDisplayActivity,
-                                database,
-                                this@PokemonDisplayActivity
-                            )
+                        pokemonAdapter.setPokemonData(database)
                         viewModel.pokimonList.value = it.results
                         recyclerView.adapter = pokemonAdapter
                         recyclerView.layoutManager = GridLayoutManager(this, 2)
@@ -109,12 +104,7 @@ class PokemonDisplayActivity : AppCompatActivity(),
                     .subscribeOn(Schedulers.io())
                     .observeOn(AndroidSchedulers.mainThread())
                     .subscribe { pokemonDex ->
-                        pokemonAdapter =
-                            PokemonAdapter(
-                                this,
-                                database,
-                                this
-                            )
+                        pokemonAdapter.setPokemonData(database)
                         database = pokemonDex.results
                         pokemonAdapter.setPokemonData(database)
                         pokemonAdapter.notifyDataSetChanged()
@@ -129,7 +119,7 @@ class PokemonDisplayActivity : AppCompatActivity(),
 
     /**
      * Sets the intent for the recyclerview item clicked
-     * Passes the postion of the recyclerview item clicked to the next activity
+     * Passes the position of the recyclerview item clicked to the next activity
      */
     override fun onItemClicked(position: Int) {
         val intent = Intent(this, PokemonInformationActivity::class.java)
